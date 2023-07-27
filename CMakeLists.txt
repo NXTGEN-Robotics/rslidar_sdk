@@ -105,11 +105,13 @@ if(roscpp_FOUND)
     find_package(catkin REQUIRED COMPONENTS
       roscpp
       sensor_msgs
-      roslib)
+      roslib
+      nodelet)
 
     catkin_package(CATKIN_DEPENDS 
       sensor_msgs 
-      roslib)
+      roslib
+      nodelet)
 
   endif(${COMPILE_METHOD} STREQUAL "CATKIN")
 
@@ -176,9 +178,17 @@ if(roscpp_FOUND)
   target_link_libraries(rslidar_sdk_node 
     ${ROS_LIBS})
 
+  # nodelet
+  add_library(rslidar_sdk_nodelet nodelet/rslidar_sdk_nodelet.cpp src/manager/node_manager.cpp)
+  target_link_libraries(rslidar_sdk_nodelet                   
+                      ${YAML_CPP_LIBRARIES}
+                      ${rs_driver_LIBRARIES}
+                      ${ROS_LIBS}
+                      ${catkin_LIBRARIES})
+
   if(${COMPILE_METHOD} STREQUAL "CATKIN")
 
-    install(TARGETS rslidar_sdk_node
+    install(TARGETS rslidar_sdk_node rslidar_sdk_nodelet
             RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
             LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
             ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})

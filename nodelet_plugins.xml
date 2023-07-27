@@ -1,0 +1,9 @@
+<library path="lib/librslidar_sdk_nodelet">
+  <class name="rslidar/RSLidarNodelet"
+         type="robosense::lidar::RSLidarNodelet"
+         base_class_type="nodelet::Nodelet">
+    <description> 
+      Nodelete for Robosense LiDAR SDK
+    </description>
+  </class>
+</library>
