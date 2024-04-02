@@ -192,7 +192,20 @@ if(roscpp_FOUND)
             RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
             LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
             ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
+            
+    # Install all launch files from the launch directory
+    install(DIRECTORY launch/
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+    )
 
+    # Install config files
+    install(DIRECTORY config/
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
+    )
+
+    install(FILES nodelet_plugins.xml
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+    )
   endif()
 
 endif(roscpp_FOUND)
