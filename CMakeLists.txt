@@ -92,10 +92,17 @@ message(=============================================================)
 # Dependencies Setup
 #========================
 
+# Check ROS_VERSION environment variable first
+if(DEFINED ENV{ROS_VERSION})
+  message(STATUS "Found ROS_VERSION environment variable: $ENV{ROS_VERSION}")
+else()
+  message(STATUS "ROS_VERSION environment variable not set, will attempt auto-detection")
+endif()
+
 #ROS#
 find_package(roscpp 1.12 QUIET)
 
-if(roscpp_FOUND)
+if(roscpp_FOUND AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 1))
 
   message(=============================================================)
   message("-- ROS Found. ROS Support is turned On.")
@@ -124,12 +131,12 @@ else(roscpp_FOUND)
   message("-- ROS Not Found. ROS Support is turned Off.")
   message(=============================================================)
 
-endif(roscpp_FOUND)
+endif()
 
 #ROS2#
 find_package(rclcpp QUIET)
 
-if(rclcpp_FOUND)
+if(rclcpp_FOUND AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 2))
   message(=============================================================)
   message("-- ROS2 Found. ROS2 Support is turned On.")
   message(=============================================================)
@@ -147,7 +154,7 @@ else(rclcpp_FOUND)
   message(=============================================================)
   message("-- ROS2 Not Found. ROS2 Support is turned Off.")
   message(=============================================================)
-endif(rclcpp_FOUND)
+endif()
 
 #Others#
 find_package(yaml-cpp REQUIRED)
@@ -173,7 +180,7 @@ target_link_libraries(rslidar_sdk_node
                       ${rs_driver_LIBRARIES})
 
 #Ros#
-if(roscpp_FOUND)
+if(roscpp_FOUND AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 1))
 
   target_link_libraries(rslidar_sdk_node 
     ${ROS_LIBS})
@@ -183,10 +190,10 @@ if(roscpp_FOUND)
           LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
           ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
 
-endif(roscpp_FOUND)
+endif()
 
 #Ros2#
-if(rclcpp_FOUND)
+if(rclcpp_FOUND  AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 2))
 
   ament_target_dependencies(rslidar_sdk_node 
     rclcpp 
@@ -205,5 +212,5 @@ if(rclcpp_FOUND)
 
   ament_package()
 
-endif(rclcpp_FOUND)
+endif()
 
