@@ -146,6 +146,7 @@ if(rclcpp_FOUND AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 2))
   set(CMAKE_CXX_STANDARD 14)
 
   find_package(ament_cmake REQUIRED)
+  find_package(rclcpp_components REQUIRED)
   find_package(sensor_msgs REQUIRED)
   find_package(rslidar_msg REQUIRED)
   find_package(std_msgs REQUIRED)                      
@@ -201,9 +202,36 @@ if(rclcpp_FOUND  AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 2)
     sensor_msgs 
     rslidar_msg)
 
+  # RSLidar Composable Node Library
+  add_library(rslidar_composable_component SHARED
+              src/rslidar_composable_node.hpp
+              src/manager/node_manager.cpp)
+
+  ament_target_dependencies(rslidar_composable_component
+    rclcpp
+    rclcpp_components
+    std_msgs
+    sensor_msgs
+    rslidar_msg)
+
+  target_link_libraries(rslidar_composable_component
+                        ${YAML_CPP_LIBRARIES}
+                        ${rs_driver_LIBRARIES})
+
+  # Register the component
+  rclcpp_components_register_nodes(rslidar_composable_component "robosense::lidar::RSLidarComposableNode")
+
+  # Install executable
   install(TARGETS
     rslidar_sdk_node
     DESTINATION lib/${PROJECT_NAME})
+
+  # Install composable library  
+  install(TARGETS
+    rslidar_composable_component
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin)
 
   install(DIRECTORY
     launch
