@@ -204,7 +204,7 @@ if(rclcpp_FOUND  AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 2)
 
   # RSLidar Composable Node Library
   add_library(rslidar_composable_component SHARED
-              src/rslidar_composable_node.hpp
+              src/rslidar_composable_node.cpp
               src/manager/node_manager.cpp)
 
   ament_target_dependencies(rslidar_composable_component

@@ -48,6 +48,49 @@ public:
             return;
         }
         
+        // Update topic names to include namespace (fix for composable nodes)
+        // The RSLidar driver creates internal nodes that don't inherit our namespace,
+        // so we need to prepend the namespace to topic names in the config
+        std::string node_namespace = get_namespace();
+        if (!node_namespace.empty() && node_namespace != "/" && config["lidar"]) {
+            for (size_t i = 0; i < config["lidar"].size(); ++i) {
+                if (config["lidar"][i]["ros"]) {
+                    auto ros_config = config["lidar"][i]["ros"];
+                    
+                    // Update topic names to include namespace
+                    if (ros_config["ros_recv_packet_topic"]) {
+                        std::string topic = ros_config["ros_recv_packet_topic"].as<std::string>();
+                        if (topic[0] != '/') { // Only modify relative topic names
+                            ros_config["ros_recv_packet_topic"] = node_namespace + "/" + topic;
+                        }
+                    }
+                    
+                    if (ros_config["ros_send_packet_topic"]) {
+                        std::string topic = ros_config["ros_send_packet_topic"].as<std::string>();
+                        if (topic[0] != '/') { // Only modify relative topic names
+                            ros_config["ros_send_packet_topic"] = node_namespace + "/" + topic;
+                        }
+                    }
+                    
+                    if (ros_config["ros_send_imu_data_topic"]) {
+                        std::string topic = ros_config["ros_send_imu_data_topic"].as<std::string>();
+                        if (topic[0] != '/') { // Only modify relative topic names
+                            ros_config["ros_send_imu_data_topic"] = node_namespace + "/" + topic;
+                        }
+                    }
+                    
+                    if (ros_config["ros_send_point_cloud_topic"]) {
+                        std::string topic = ros_config["ros_send_point_cloud_topic"].as<std::string>();
+                        if (topic[0] != '/') { // Only modify relative topic names
+                            ros_config["ros_send_point_cloud_topic"] = node_namespace + "/" + topic;
+                            RCLCPP_INFO(get_logger(), "Updated point cloud topic to: %s", 
+                                       ros_config["ros_send_point_cloud_topic"].as<std::string>().c_str());
+                        }
+                    }
+                }
+            }
+        }
+        
         // Create and initialize NodeManager (same as original implementation)
         node_manager_ = std::make_shared<NodeManager>();
         
@@ -78,5 +121,4 @@ private:
 } // namespace lidar
 } // namespace robosense
 
-// Register the component with the ROS 2 component system
-RCLCPP_COMPONENTS_REGISTER_NODE(robosense::lidar::RSLidarComposableNode)
+
