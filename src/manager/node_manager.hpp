@@ -34,6 +34,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "utility/yaml_reader.hpp"
 #include "source/source.hpp"
+#include <rclcpp/rclcpp.hpp>
 
 namespace robosense
 {
@@ -50,10 +51,14 @@ public:
 
   ~NodeManager();
   NodeManager() = default;
+  
+  // Method to set parent node for composable usage
+  void setParentNode(std::shared_ptr<rclcpp::Node> parent_node) { parent_node_ = parent_node; }
 
 private:
 
   std::vector<Source::Ptr> sources_;
+  std::shared_ptr<rclcpp::Node> parent_node_;  // For composable usage
 };
 
 }  // namespace lidar

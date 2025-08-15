@@ -114,7 +114,10 @@ void NodeManager::init(const YAML::Node& config)
       RS_DEBUG << "Msop Topic: " << lidar_config[i]["ros"]["ros_send_packet_topic"].as<std::string>() << RS_REND;
       RS_DEBUG << "------------------------------------------------------" << RS_REND;
 
-      std::shared_ptr<DestinationPacket> dst = std::make_shared<DestinationPacketRos>();
+      std::shared_ptr<DestinationPacketRos> dst = std::make_shared<DestinationPacketRos>();
+      if (parent_node_) {
+        dst->setParentNode(parent_node_);
+      }
       dst->init(lidar_config[i]);
       source->regPacketCallback(dst);
     }
@@ -127,7 +130,10 @@ void NodeManager::init(const YAML::Node& config)
                << RS_REND;
       RS_DEBUG << "------------------------------------------------------" << RS_REND;
 
-      std::shared_ptr<DestinationPointCloud> dst = std::make_shared<DestinationPointCloudRos>();
+      std::shared_ptr<DestinationPointCloudRos> dst = std::make_shared<DestinationPointCloudRos>();
+      if (parent_node_) {
+        dst->setParentNode(parent_node_);
+      }
       dst->init(lidar_config[i]);
       source->regPointCloudCallback(dst);
     }

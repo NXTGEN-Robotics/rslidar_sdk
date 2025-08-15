@@ -13,6 +13,8 @@ Date: 2025
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <yaml-cpp/yaml.h>
+#include <chrono>
+#include <functional>
 
 #include "manager/node_manager.hpp"
 
@@ -30,21 +32,47 @@ public:
         RCLCPP_INFO(get_logger(), "RSLidar Composable Node starting...");
         
         // Get config path parameter (same as original implementation)
-        std::string config_path = declare_parameter<std::string>("config_path", "");
+        config_path_ = declare_parameter<std::string>("config_path", "");
         
-        if (config_path.empty()) {
+        if (config_path_.empty()) {
             RCLCPP_ERROR(get_logger(), "config_path parameter is required!");
             return;
         }
         
+        // Defer NodeManager initialization to avoid shared_from_this() in constructor
+        // Use a timer to initialize after construction is complete
+        init_timer_ = create_wall_timer(
+            std::chrono::milliseconds(1), 
+            std::bind(&RSLidarComposableNode::initialize_node_manager, this)
+        );
+    }
+    
+    ~RSLidarComposableNode()
+    {
+        if (init_timer_) {
+            init_timer_->cancel();
+        }
+        if (node_manager_) {
+            RCLCPP_INFO(get_logger(), "Stopping RSLidar NodeManager...");
+            node_manager_->stop();
+        }
+    }
+
+private:
+    void initialize_node_manager()
+    {
+        // Cancel the timer since we only need to run once
+        init_timer_->cancel();
+        init_timer_.reset();
+        
         // Load YAML config (same as original implementation)
         YAML::Node config;
         try {
-            config = YAML::LoadFile(config_path);
-            RCLCPP_INFO(get_logger(), "Config loaded from: %s", config_path.c_str());
+            config = YAML::LoadFile(config_path_);
+            RCLCPP_INFO(get_logger(), "Config loaded from: %s", config_path_.c_str());
         }
         catch (const std::exception& e) {
-            RCLCPP_ERROR(get_logger(), "Failed to load config file %s: %s", config_path.c_str(), e.what());
+            RCLCPP_ERROR(get_logger(), "Failed to load config file %s: %s", config_path_.c_str(), e.what());
             return;
         }
         
@@ -91,8 +119,9 @@ public:
             }
         }
         
-        // Create and initialize NodeManager (same as original implementation)
+        // Create and initialize NodeManager (with composable node support)
         node_manager_ = std::make_shared<NodeManager>();
+        node_manager_->setParentNode(shared_from_this());
         
         try {
             node_manager_->init(config);
@@ -105,17 +134,10 @@ public:
             return;
         }
     }
-    
-    ~RSLidarComposableNode()
-    {
-        if (node_manager_) {
-            RCLCPP_INFO(get_logger(), "Stopping RSLidar NodeManager...");
-            node_manager_->stop();
-        }
-    }
 
-private:
     std::shared_ptr<NodeManager> node_manager_;
+    rclcpp::TimerBase::SharedPtr init_timer_;
+    std::string config_path_;
 };
 
 } // namespace lidar
