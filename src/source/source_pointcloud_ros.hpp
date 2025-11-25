@@ -402,8 +402,10 @@ inline sensor_msgs::msg::PointCloud2 toRosMsg(const LidarPointCloudMsg& rs_msg, 
     }
   }
 
-  ros_msg.header.stamp.sec = (uint32_t)floor(rs_msg.timestamp);
-  ros_msg.header.stamp.nanosec = (uint32_t)round((rs_msg.timestamp - ros_msg.header.stamp.sec) * 1e9);
+  // CRITICAL FIX: Use ROS clock instead of sensor internal timestamp
+  // The sensor's internal timestamp may not be synchronized with system time,
+  // causing TF lookup failures and tracking issues. Always use ROS time.
+  ros_msg.header.stamp = rclcpp::Clock().now();
   ros_msg.header.frame_id = frame_id;
 
   return ros_msg;
