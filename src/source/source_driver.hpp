@@ -37,6 +37,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rs_driver/api/lidar_driver.hpp>
 #include <rs_driver/utility/sync_queue.hpp>
 
+#include <mutex>
+
 namespace robosense
 {
 namespace lidar
@@ -49,6 +51,8 @@ public:
   virtual void init(const YAML::Node& config);
   virtual void start();
   virtual void stop();
+  virtual void setStreaming(bool enable);
+  virtual bool isStreaming() const;
   virtual void regPacketCallback(DestinationPacket::Ptr dst);
   virtual ~SourceDriver();
 
@@ -75,10 +79,15 @@ protected:
 #endif
   std::thread point_cloud_process_thread_;
   bool to_exit_process_;
+
+  // Warm-idle state. Guards driver_ptr_->start()/stop() against double toggles
+  // and gates the point-cloud publish for a clean cutoff. Default on.
+  mutable std::mutex streaming_mutex_;
+  bool streaming_enabled_;
 };
 
 SourceDriver::SourceDriver(SourceType src_type)
-  : Source(src_type), to_exit_process_(false)
+  : Source(src_type), to_exit_process_(false), streaming_enabled_(true)
 {
 }
 
@@ -172,7 +181,41 @@ inline void SourceDriver::init(const YAML::Node& config)
 
 inline void SourceDriver::start()
 {
+  std::lock_guard<std::mutex> lock(streaming_mutex_);
   driver_ptr_->start();
+  streaming_enabled_ = true;
+}
+
+// Warm-idle toggle: pause/resume the rs_driver receive+decode threads while the
+// process, config, publishers, and this SourceDriver's process thread
+// stay alive. Idempotent + thread-safe. Note this deliberately does NOT touch
+// to_exit_process_ / point_cloud_process_thread_ (that is the permanent teardown
+// done by stop()); the process thread simply idles on its popWait timeout while
+// paused. rs_driver's start()/stop() are themselves start_flag_-guarded and
+// re-open the UDP socket + decode thread with no re-init.
+inline void SourceDriver::setStreaming(bool enable)
+{
+  std::lock_guard<std::mutex> lock(streaming_mutex_);
+  if (enable == streaming_enabled_)
+  {
+    return;
+  }
+
+  if (enable)
+  {
+    driver_ptr_->start();
+  }
+  else
+  {
+    driver_ptr_->stop();
+  }
+  streaming_enabled_ = enable;
+}
+
+inline bool SourceDriver::isStreaming() const
+{
+  std::lock_guard<std::mutex> lock(streaming_mutex_);
+  return streaming_enabled_;
 }
 
 inline SourceDriver::~SourceDriver()
@@ -257,8 +300,14 @@ void SourceDriver::processPointCloud()
     {
       continue;
     }
-    sendPointCloud(msg);
-    
+    // Warm-idle: drop any in-flight frame decoded just before a pause so the
+    // topic cuts off cleanly. Decode is already halted while paused, so this
+    // only ever discards the last queued frame.
+    if (isStreaming())
+    {
+      sendPointCloud(msg);
+    }
+
     free_point_cloud_queue_.push(msg);
   }
 }

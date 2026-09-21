@@ -164,6 +164,29 @@ void NodeManager::stop()
   }
 }
 
+void NodeManager::setStreaming(bool enable)
+{
+  for (auto& iter : sources_)
+  {
+    if (iter != nullptr)
+    {
+      iter->setStreaming(enable);
+    }
+  }
+}
+
+bool NodeManager::anyStreaming() const
+{
+  for (const auto& iter : sources_)
+  {
+    if (iter != nullptr && iter->isStreaming())
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 NodeManager::~NodeManager()
 {
   stop();
