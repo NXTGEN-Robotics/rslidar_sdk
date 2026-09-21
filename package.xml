@@ -17,6 +17,7 @@
   <depend condition="$ROS_VERSION == 2">rslidar_msg</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend condition="$ROS_VERSION == 2">std_srvs</depend>
   <depend>yaml-cpp</depend>
 
   <export>

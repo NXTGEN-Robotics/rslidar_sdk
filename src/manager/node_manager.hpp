@@ -49,6 +49,11 @@ public:
   void start();
   void stop();
 
+  // Warm-idle control: fan out to every source. Non-driver sources ignore it
+  // (base Source default). anyStreaming() reports current state.
+  void setStreaming(bool enable);
+  bool anyStreaming() const;
+
   ~NodeManager();
   NodeManager() = default;
   

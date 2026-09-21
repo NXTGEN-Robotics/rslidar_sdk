@@ -12,9 +12,14 @@ Date: 2025
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <yaml-cpp/yaml.h>
 #include <chrono>
 #include <functional>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "manager/node_manager.hpp"
 
@@ -33,7 +38,12 @@ public:
         
         // Get config path parameter (same as original implementation)
         config_path_ = declare_parameter<std::string>("config_path", "");
-        
+
+        // Warm-idle initial state. Fail-safe default = streaming on. The runtime
+        // toggle is served via the ~/set_streaming service and this param's on-set
+        // callback; both funnel through apply_streaming().
+        streaming_enabled_ = declare_parameter<bool>("streaming_enabled", true);
+
         if (config_path_.empty()) {
             RCLCPP_ERROR(get_logger(), "config_path parameter is required!");
             return;
@@ -133,11 +143,105 @@ private:
             node_manager_.reset();
             return;
         }
+
+        setup_streaming_control();
+    }
+
+    // Warm-idle control surface: a SetBool service, a latched Bool status, and a
+    // dedicated callback group. node_manager_->start() leaves the driver
+    // streaming, so we reconcile once here to honour the startup param.
+    void setup_streaming_control()
+    {
+        // Latched status so late subscribers always see the current state. IPC
+        // disabled: transient_local is incompatible with intra-process, and
+        // consumers live in other processes anyway.
+        rclcpp::PublisherOptions status_pub_options;
+        status_pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Disable;
+        streaming_active_pub_ = create_publisher<std_msgs::msg::Bool>(
+            "~/streaming_active", rclcpp::QoS(1).transient_local(), status_pub_options);
+
+        // Dedicated callback group so the toggle never starves behind driver work
+        // in the multi-threaded container.
+        streaming_control_cbg_ = create_callback_group(
+            rclcpp::CallbackGroupType::MutuallyExclusive);
+        set_streaming_srv_ = create_service<std_srvs::srv::SetBool>(
+            "~/set_streaming",
+            std::bind(&RSLidarComposableNode::handle_set_streaming, this,
+                      std::placeholders::_1, std::placeholders::_2),
+            rclcpp::ServicesQoS().get_rmw_qos_profile(), streaming_control_cbg_);
+
+        // Runtime toggle via `ros2 param set ... streaming_enabled`.
+        param_cb_handle_ = add_on_set_parameters_callback(
+            std::bind(&RSLidarComposableNode::on_set_parameters, this,
+                      std::placeholders::_1));
+
+        // Reconcile initial state from the startup param and latch status.
+        apply_streaming(streaming_enabled_);
+
+        RCLCPP_INFO(get_logger(), "Streaming control ready (driver %s)",
+                    streaming_enabled_ ? "STREAMING" : "IDLE");
+    }
+
+    // Single funnel for every streaming state change (startup param, service,
+    // param-set). Fans out to the driver via the NodeManager, mirrors the state
+    // into streaming_enabled_, and latches the status topic.
+    void apply_streaming(bool enable)
+    {
+        if (node_manager_) {
+            node_manager_->setStreaming(enable);
+        }
+        streaming_enabled_ = enable;
+        publish_streaming_active();
+    }
+
+    void handle_set_streaming(
+        const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+        std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+    {
+        const bool desired = request->data;
+        const bool changed = (desired != streaming_enabled_);
+        apply_streaming(desired);
+        response->success = true;
+        response->message = std::string("lidar streaming ") + (desired ? "ENABLED" : "IDLE");
+        if (changed) {
+            RCLCPP_INFO(get_logger(), "LiDAR streaming -> %s (warm-idle)",
+                        desired ? "ENABLED" : "IDLE");
+        }
+    }
+
+    rcl_interfaces::msg::SetParametersResult on_set_parameters(
+        const std::vector<rclcpp::Parameter>& params)
+    {
+        rcl_interfaces::msg::SetParametersResult result;
+        result.successful = true;
+        for (const auto& p : params) {
+            if (p.get_name() == "streaming_enabled" &&
+                p.get_type() == rclcpp::ParameterType::PARAMETER_BOOL) {
+                apply_streaming(p.as_bool());
+            }
+        }
+        return result;
+    }
+
+    void publish_streaming_active()
+    {
+        if (streaming_active_pub_) {
+            std_msgs::msg::Bool msg;
+            msg.data = streaming_enabled_;
+            streaming_active_pub_->publish(msg);
+        }
     }
 
     std::shared_ptr<NodeManager> node_manager_;
     rclcpp::TimerBase::SharedPtr init_timer_;
     std::string config_path_;
+
+    // Warm-idle control.
+    bool streaming_enabled_{true};
+    rclcpp::CallbackGroup::SharedPtr streaming_control_cbg_;
+    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr set_streaming_srv_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr streaming_active_pub_;
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_handle_;
 };
 
 } // namespace lidar

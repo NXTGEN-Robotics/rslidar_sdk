@@ -84,6 +84,11 @@ public:
   virtual void init(const YAML::Node& config) {}
   virtual void start() {}
   virtual void stop() {}
+  // Runtime warm-idle control. Default no-op so non-driver sources (ROS packet /
+  // proto) safely ignore it. SourceDriver overrides it to pause/resume the
+  // rs_driver receive+decode threads while the process stays alive.
+  virtual void setStreaming(bool /*enable*/) {}
+  virtual bool isStreaming() const { return true; }
   virtual void regPointCloudCallback(DestinationPointCloud::Ptr dst);
   virtual void regPacketCallback(DestinationPacket::Ptr dst);
   virtual ~Source() = default;

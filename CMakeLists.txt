@@ -151,7 +151,8 @@ if(rclcpp_FOUND AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 2))
   find_package(rclcpp_components REQUIRED)
   find_package(sensor_msgs REQUIRED)
   find_package(rslidar_msg REQUIRED)
-  find_package(std_msgs REQUIRED)                      
+  find_package(std_msgs REQUIRED)
+  find_package(std_srvs REQUIRED)
 
 else(rclcpp_FOUND)
   message(=============================================================)
@@ -213,6 +214,7 @@ if(rclcpp_FOUND  AND (NOT DEFINED ENV{ROS_VERSION} OR $ENV{ROS_VERSION} EQUAL 2)
     rclcpp
     rclcpp_components
     std_msgs
+    std_srvs
     sensor_msgs
     rslidar_msg)
 
